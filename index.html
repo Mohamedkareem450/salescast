@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="SalesCast forecasts your daily sales. Upload or paste sales history and get a forecast with a likely range and an accuracy check.">
+<title>SalesCast</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: slim top bar, left-aligned hero, one working card (input then results), then short explainers. */
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --fg: #14181f; --muted: #5b6472; --line: #dde1e7;
+  --accent: #1d5fd6; --accent-fg: #ffffff; --fcast: #c2410c; --actual: #6b7380; --band: rgba(194,65,12,0.14);
+  --good: #12805c; --bad: #b42318; --soft: #eef0f4;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1217; --surface: #171b22; --fg: #e8ebf0; --muted: #9aa3b0; --line: #2a303a;
+    --accent: #6ea3ff; --accent-fg: #0f1217; --fcast: #fb923c; --actual: #8b94a3; --band: rgba(251,146,60,0.16);
+    --good: #4ade80; --bad: #f87171; --soft: #1e232c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1217; --surface: #171b22; --fg: #e8ebf0; --muted: #9aa3b0; --line: #2a303a;
+  --accent: #6ea3ff; --accent-fg: #0f1217; --fcast: #fb923c; --actual: #8b94a3; --band: rgba(251,146,60,0.16);
+  --good: #4ade80; --bad: #f87171; --soft: #1e232c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { color-scheme: light; }
+@media (prefers-color-scheme: dark) { html { color-scheme: dark; } }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6; padding-block: 0 48px; }
+.in { max-width: 920px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: var(--accent); }
+.top { border-bottom: 1px solid var(--line); }
+.top .in { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 14px; flex-wrap: wrap; }
+.brand { font-family: var(--font-head); font-weight: 700; font-size: 1.15rem; }
+.top nav { display: flex; gap: 18px; font-size: 14px; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--fg); }
+.hero { padding-block: 44px 28px; }
+.hero h1 { font-size: clamp(1.9rem, 6vw, 3rem); line-height: 1.1; max-width: 16ch; }
+.hero p { color: var(--muted); max-width: 54ch; margin-top: 14px; font-size: 1.05rem; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.pad { padding: 18px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--soft); border-radius: 8px; padding: 4px; }
+button, select, textarea { font: inherit; color: var(--fg); }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
+.btn { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 7px; padding: 9px 18px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.btn.ghost { background: var(--surface); color: var(--fg); border: 1px solid var(--line); font-weight: 500; padding: 6px 12px; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, input:focus-visible + .drop { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.panel p { color: var(--muted); font-size: 14px; max-width: 60ch; }
+.drop { display: block; width: 100%; border: 1.5px dashed var(--line); border-radius: 8px; padding: 22px 16px; text-align: center; color: var(--muted); cursor: pointer; }
+.drop:hover, .drop.over { border-color: var(--accent); color: var(--fg); }
+.drop input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+textarea { width: 100%; min-height: 130px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-family: var(--font-mono); font-size: 13px; }
+.ctrl { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; border-top: 1px solid var(--line); padding: 14px 18px; }
+.ctrl label { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+#msg { font-size: 14px; color: var(--muted); }
+#msg.err { color: var(--bad); }
+.chip { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--soft); color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
+#results { margin-top: 20px; display: flex; flex-direction: column; gap: 18px; }
+.rhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.rhead h2 { font-size: 1.2rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.stat { padding: 14px 16px; }
+.stat .k { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font-family: var(--font-head); font-size: 1.65rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.stat .s { font-size: 12.5px; color: var(--muted); }
+.up { color: var(--good); } .down { color: var(--bad); }
+.scroll { overflow-x: auto; }
+.chart { min-width: 560px; padding: 12px 8px 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); padding: 4px 16px 14px; }
+.legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.legend i.b { height: 10px; background: var(--band); border: 1px solid var(--fcast); }
+svg text { font-family: var(--font-body); font-size: 11px; fill: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 9px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--surface); }
+tr:last-child td { border-bottom: 0; }
+.tbl { max-height: 360px; overflow: auto; }
+#csvbox { display: none; width: 100%; }
+.how { padding-block: 44px 8px; }
+.how h2, .faq h2 { font-size: 1.4rem; margin-bottom: 16px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.cols .card { padding: 16px; }
+.cols h3 { font-size: 1rem; margin-bottom: 6px; }
+.cols p { color: var(--muted); font-size: 14px; }
+.faq { padding-block: 36px 0; }
+details { border-bottom: 1px solid var(--line); padding: 12px 0; }
+summary { cursor: pointer; font-weight: 500; }
+details p { color: var(--muted); margin-top: 8px; max-width: 64ch; font-size: 14px; }
+footer { padding-top: 36px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+
+<header class="top"><div class="in">
+  <span class="brand">SalesCast</span>
+  <nav><a href="#tool">Forecast</a><a href="#how">How it works</a><a href="#faq">FAQ</a></nav>
+</div></header>
+
+<main class="in">
+  <section class="hero">
+    <h1>Know next month's sales before it starts</h1>
+    <p>Add your daily sales history and SalesCast projects the days ahead, with a likely range for each day and a check of how accurate the method is on your own numbers.</p>
+  </section>
+
+  <section id="tool">
+    <div class="card">
+      <div class="pad">
+        <div class="seg" role="group" aria-label="Data source">
+          <button type="button" data-tab="sample" aria-pressed="true">Sample data</button>
+          <button type="button" data-tab="upload" aria-pressed="false">Upload CSV</button>
+          <button type="button" data-tab="paste" aria-pressed="false">Paste data</button>
+        </div>
+        <div class="panel" id="p-sample">
+          <p>Two years of generated daily sales with weekly and yearly patterns, so you can see how the forecast works before adding your own numbers.</p>
+          <button type="button" class="btn" id="go-sample">Run sample forecast</button>
+        </div>
+        <div class="panel" id="p-upload" hidden>
+          <label class="drop" id="drop">
+            <input type="file" id="file" accept=".csv,.txt,text/csv,text/plain">
+            Choose a CSV file or drop it here<br><small>Two columns: date, sales. One row per day works best.</small>
+          </label>
+        </div>
+        <div class="panel" id="p-paste" hidden>
+          <textarea id="paste" placeholder="date,sales&#10;2026-01-01,420&#10;2026-01-02,455&#10;2026-01-03,610" aria-label="Paste date and sales rows"></textarea>
+          <button type="button" class="btn" id="go-paste">Run forecast</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label for="horizon">Forecast length
+          <select id="horizon"><option value="7">7 days</option><option value="14">14 days</option><option value="30" selected>30 days</option><option value="60">60 days</option><option value="90">90 days</option></select>
+        </label>
+        <span id="msg" role="status"></span>
+      </div>
+    </div>
+
+    <div id="results" aria-live="polite"></div>
+  </section>
+
+  <section class="how" id="how">
+    <h2>How it works</h2>
+    <div class="cols">
+      <div class="card"><h3>Learns your patterns</h3><p>It fits the overall trend, the day-of-week rhythm (weekends versus weekdays) and, with a year or more of history, the seasonal curve.</p></div>
+      <div class="card"><h3>Tests itself first</h3><p>The last stretch of your history is hidden, predicted, and compared with what really sold. That gives you the average error shown with each forecast.</p></div>
+      <div class="card"><h3>Shows the range</h3><p>Every forecast day comes with a low and high value that actual sales should land between about four times out of five.</p></div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq">
+    <h2>Questions</h2>
+    <details><summary>What file format do I need?</summary><p>A CSV or pasted text with a date in the first column and sales in the second. A header row is fine. Several rows on the same day are added together, and missing days are filled in from the days around them.</p></details>
+    <details><summary>How much history is needed?</summary><p>At least 28 days. Four to eight weeks gives a usable weekly pattern, and a year or more lets it learn seasonality.</p></details>
+    <details><summary>Is my data uploaded anywhere?</summary><p>No. The calculations run in your browser, and nothing you add leaves this page.</p></details>
+    <details><summary>Does it know about promotions or holidays?</summary><p>Not yet. It sees only dates and sales, so a planned promotion or holiday spike will not appear in the forecast.</p></details>
+  </section>
+  <footer>SalesCast forecasts are estimates based on past patterns. Treat them as a planning guide.</footer>
+</main>
+
+<script>
+(function () {
+  var DAY = 864e5;
+  function $(id) { return document.getElementById(id); }
+  function fmt(n, d) { return n.toLocaleString("en-US", { maximumFractionDigits: d || 0, minimumFractionDigits: d || 0 }); }
+  function fdate(ms, o) { return new Date(ms).toLocaleDateString("en-US", Object.assign({ timeZone: "UTC" }, o)); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  /* ---------- sample data ---------- */
+  function rng(seed) { var s = seed >>> 0; return function () { s = (s + 0x6D2B79F5) | 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function sample() {
+    var r = rng(42), n = 730, now = new Date();
+    var end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - DAY;
+    var days = [], vals = [];
+    for (var i = 0; i < n; i++) {
+      var ms = end - (n - 1 - i) * DAY, d = new Date(ms), dow = d.getUTCDay();
+      var doy = (ms - Date.UTC(d.getUTCFullYear(), 0, 0)) / DAY;
+      var g = Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r());
+      var promo = r() < 0.05 ? 60 + r() * 80 : 0;
+      var v = 200 + 0.3 * i + 30 * Math.sin(2 * Math.PI * dow / 7) + (dow === 0 || dow === 6 ? 40 : 0) +
+        45 * Math.sin(2 * Math.PI * (doy - 80) / 365.25) + promo + 15 * g;
+      days.push(ms); vals.push(Math.max(0, Math.round(v * 10) / 10));
+    }
+    return { days: days, vals: vals };
+  }
+
+  /* ---------- parsing ---------- */
+  function toDay(s) {
+    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+    if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    var p = Date.parse(s); if (isNaN(p)) return null;
+    var d = new Date(p); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function parse(text) {
+    var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    if (!lines.length) return null;
+    var delim = lines[0].indexOf("\t") > -1 ? "\t" : (lines[0].indexOf(";") > -1 && lines[0].indexOf(",") === -1 ? ";" : ",");
+    var map = {};
+    lines.forEach(function (l) {
+      var c = l.split(delim); if (c.length < 2) return;
+      var ms = toDay(c[0].replace(/^"|"$/g, "").trim()); if (ms == null) return;
+      var v = parseFloat(c[1].replace(/[^0-9.\-]/g, "")); if (isNaN(v)) return;
+      map[ms] = (map[ms] || 0) + v;
+    });
+    var keys = Object.keys(map).map(Number).sort(function (a, b) { return a - b; });
+    if (!keys.length) return null;
+    var days = [], vals = [], last = null;
+    keys.forEach(function (k) {
+      if (last !== null && k - last > DAY) {
+        var gap = (k - last) / DAY, v0 = map[last], v1 = map[k];
+        for (var j = 1; j < gap; j++) { days.push(last + j * DAY); vals.push(v0 + (v1 - v0) * j / gap); }
+      }
+      days.push(k); vals.push(map[k]); last = k;
+    });
+    return { days: days, vals: vals };
+  }
+
+  /* ---------- model: trend + weekday + yearly seasonality (ridge regression) ---------- */
+  function solve(A, b) {
+    var n = b.length, i, r, c;
+    for (i = 0; i < n; i++) {
+      var p = i; for (r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      var t = A[i]; A[i] = A[p]; A[p] = t; var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      var d = A[i][i] || 1e-12;
+      for (r = i + 1; r < n; r++) { var m = A[r][i] / d; for (c = i; c < n; c++) A[r][c] -= m * A[i][c]; b[r] -= m * b[i]; }
+    }
+    var x = new Array(n);
+    for (i = n - 1; i >= 0; i--) { var s = b[i]; for (c = i + 1; c < n; c++) s -= A[i][c] * x[c]; x[i] = s / (A[i][i] || 1e-12); }
+    return x;
+  }
+  function ridge(X, y, lam) {
+    var p = X[0].length, A = [], b = [], i, j, r;
+    for (i = 0; i < p; i++) { A.push(new Array(p).fill(0)); b.push(0); }
+    for (r = 0; r < X.length; r++) for (i = 0; i < p; i++) { b[i] += X[r][i] * y[r]; for (j = 0; j < p; j++) A[i][j] += X[r][i] * X[r][j]; }
+    for (i = 1; i < p; i++) A[i][i] += lam;
+    return solve(A, b);
+  }
+  function feats(ms, origin, o) {
+    var d = new Date(ms), dow = d.getUTCDay(), f = [1, (ms - origin) / DAY / 365], k;
+    if (o.weekly) for (k = 1; k < 7; k++) f.push(dow === k ? 1 : 0);
+    if (o.K) { var doy = (ms - Date.UTC(d.getUTCFullYear(), 0, 0)) / DAY; for (k = 1; k <= o.K; k++) { var a = 2 * Math.PI * k * doy / 365.25; f.push(Math.sin(a), Math.cos(a)); } }
+    return f;
+  }
+  function dot(a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+
+  function forecast(S, H) {
+    var n = S.vals.length, origin = S.days[0];
+    var o = { weekly: n >= 28, K: n >= 500 ? 3 : (n >= 365 ? 2 : 0) };
+    var X = S.days.map(function (ms) { return feats(ms, origin, o); });
+    // hold-out test
+    var h = Math.min(30, Math.floor(n * 0.2)), tr = n - h;
+    var bt = ridge(X.slice(0, tr), S.vals.slice(0, tr), 1e-3);
+    var errM = 0, errB = 0, tot = 0;
+    for (var t = tr; t < n; t++) { errM += Math.abs(S.vals[t] - Math.max(0, dot(bt, X[t]))); errB += Math.abs(S.vals[t] - S.vals[t - 7]); tot += Math.abs(S.vals[t]); }
+    // final fit
+    var beta = ridge(X, S.vals, 1e-3), ss = 0;
+    for (var i = 0; i < n; i++) { var e = S.vals[i] - dot(beta, X[i]); ss += e * e; }
+    var p = X[0].length, sd = Math.sqrt(ss / Math.max(1, n - p)), z = 1.2816;
+    var out = [];
+    for (var k = 1; k <= H; k++) {
+      var ms = S.days[n - 1] + k * DAY, v = Math.max(0, dot(beta, feats(ms, origin, o)));
+      out.push({ ms: ms, v: v, lo: Math.max(0, v - z * sd), hi: v + z * sd });
+    }
+    return { rows: out, err: tot ? errM / tot : 0, base: tot ? errB / tot : 0, holdout: h };
+  }
+
+  /* ---------- chart ---------- */
+  function niceStep(range) {
+    var rough = range / 4, mag = Math.pow(10, Math.floor(Math.log10(rough))), c = [1, 2, 5, 10];
+    for (var i = 0; i < c.length; i++) if (c[i] * mag >= rough) return c[i] * mag;
+    return 10 * mag;
+  }
+  function chart(S, F, H) {
+    var W = 800, HT = 330, L = 56, R = 16, T = 14, B = 30;
+    var show = Math.min(S.vals.length, Math.max(90, H * 2));
+    var hd = S.days.slice(-show), hv = S.vals.slice(-show), rows = F.rows;
+    var x0 = hd[0], x1 = rows[rows.length - 1].ms;
+    var lo = Infinity, hi = -Infinity;
+    hv.forEach(function (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); });
+    rows.forEach(function (r) { lo = Math.min(lo, r.lo); hi = Math.max(hi, r.hi); });
+    var step = niceStep(hi - lo || 1), y0 = Math.max(0, Math.floor(lo / step) * step), y1 = Math.ceil(hi / step) * step;
+    function X(ms) { return L + (ms - x0) / (x1 - x0) * (W - L - R); }
+    function Y(v) { return T + (1 - (v - y0) / (y1 - y0)) * (HT - T - B); }
+    var g = "", v, i;
+    for (v = y0; v <= y1 + 1e-9; v += step) {
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="var(--line)"/>';
+      g += '<text x="' + (L - 8) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + fmt(v) + '</text>';
+    }
+    for (i = 0; i <= 4; i++) {
+      var ms = x0 + (x1 - x0) * i / 4, anchor = i === 0 ? "start" : (i === 4 ? "end" : "middle");
+      g += '<text x="' + X(ms) + '" y="' + (HT - 10) + '" text-anchor="' + anchor + '">' + fdate(ms, { day: "numeric", month: "short" }) + '</text>';
+    }
+    var sx = X(hd[hd.length - 1]);
+    g += '<line x1="' + sx + '" x2="' + sx + '" y1="' + T + '" y2="' + (HT - B) + '" stroke="var(--muted)" stroke-dasharray="3 4"/>';
+    g += '<text x="' + (sx - 6) + '" y="' + (T + 10) + '" text-anchor="end">Today</text>';
+    var up = rows.map(function (r, k) { return (k ? "L" : "M") + X(r.ms).toFixed(1) + " " + Y(r.hi).toFixed(1); }).join("");
+    var dn = rows.slice().reverse().map(function (r) { return "L" + X(r.ms).toFixed(1) + " " + Y(r.lo).toFixed(1); }).join("");
+    g += '<path d="' + up + dn + 'Z" fill="var(--band)" stroke="none"/>';
+    g += '<path d="' + hd.map(function (m, k) { return (k ? "L" : "M") + X(m).toFixed(1) + " " + Y(hv[k]).toFixed(1); }).join("") + '" fill="none" stroke="var(--actual)" stroke-width="1.4" stroke-linejoin="round"/>';
+    g += '<path d="' + rows.map(function (r, k) { return (k ? "L" : "M") + X(r.ms).toFixed(1) + " " + Y(r.v).toFixed(1); }).join("") + '" fill="none" stroke="var(--fcast)" stroke-width="2.2" stroke-linejoin="round"/>';
+    return '<svg viewBox="0 0 ' + W + ' ' + HT + '" width="100%" role="img" aria-label="Line chart of recent sales and the forecast with its likely range">' + g + '</svg>';
+  }
+
+  /* ---------- render ---------- */
+  var current = null;
+  function render(S, label) {
+    var H = +$("horizon").value, n = S.vals.length;
+    if (n < 28) { msg("Need at least 28 days of sales. Found " + n + ".", true); return; }
+    current = { S: S, label: label };
+    var F = forecast(S, H), rows = F.rows;
+    var total = rows.reduce(function (a, r) { return a + r.v; }, 0), avg = total / H;
+    var m = Math.min(H, n), lastAvg = S.vals.slice(-m).reduce(function (a, b) { return a + b; }, 0) / m;
+    var pct = lastAvg ? (avg / lastAvg - 1) * 100 : 0;
+    var acc = Math.max(0, 100 - F.err * 100), better = F.base > 0 ? (1 - F.err / F.base) * 100 : 0;
+    var csv = "date,forecast,low,high\n" + rows.map(function (r) { return [new Date(r.ms).toISOString().slice(0, 10), r.v.toFixed(1), r.lo.toFixed(1), r.hi.toFixed(1)].join(","); }).join("\n");
+    var html =
+      '<div class="rhead"><h2>Forecast, next ' + H + ' days</h2><span class="chip" id="src"></span></div>' +
+      '<div class="stats">' +
+      '<div class="card stat"><div class="k">Expected total</div><div class="v">' + fmt(total) + '</div><div class="s">about ' + fmt(avg) + ' per day</div></div>' +
+      '<div class="card stat"><div class="k">Versus recent days</div><div class="v ' + (pct >= 0 ? "up" : "down") + '">' + (pct >= 0 ? "+" : "") + fmt(pct, 1) + '%</div><div class="s">daily average, compared with the last ' + m + ' days</div></div>' +
+      '<div class="card stat"><div class="k">Accuracy check</div><div class="v">' + fmt(F.err * 100, 1) + '% error</div><div class="s">on the last ' + F.holdout + ' days it had not seen' + (better > 0 ? ', ' + fmt(better) + '% better than repeating last week' : '') + '</div></div>' +
+      '</div>' +
+      '<div class="card"><div class="scroll"><div class="chart">' + chart(S, F, H) + '</div></div>' +
+      '<div class="legend"><span><i style="background:var(--actual)"></i>Past sales</span><span><i style="background:var(--fcast)"></i>Forecast</span><span><i class="b"></i>Likely range (80%)</span></div></div>' +
+      '<div class="card"><div class="pad rhead"><h2 style="font-size:1.05rem">Day by day</h2><button type="button" class="btn ghost" id="copy">Copy as CSV</button></div>' +
+      '<textarea id="csvbox" readonly aria-label="Forecast CSV"></textarea>' +
+      '<div class="tbl"><table><thead><tr><th>Date</th><th>Forecast</th><th>Low</th><th>High</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td>' + fdate(r.ms, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) + '</td><td>' + fmt(r.v, 1) + '</td><td>' + fmt(r.lo, 1) + '</td><td>' + fmt(r.hi, 1) + '</td></tr>'; }).join("") +
+      '</tbody></table></div></div>';
+    $("results").innerHTML = html;
+    $("src").textContent = label + " · " + n + " days of history";
+    $("csvbox").value = csv;
+    $("copy").addEventListener("click", function () {
+      var b = this, box = $("csvbox");
+      function ok() { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy as CSV"; }, 1600); }
+      function fb() { box.style.display = "block"; box.rows = 6; box.focus(); box.select(); b.textContent = "Select and copy below"; }
+      try { navigator.clipboard.writeText(csv).then(ok, fb); } catch (e) { fb(); }
+    });
+    msg("");
+  }
+  function msg(t, err) { var el = $("msg"); el.textContent = t; el.className = err ? "err" : ""; }
+
+  /* ---------- wiring ---------- */
+  var tabs = document.querySelectorAll("[data-tab]");
+  tabs.forEach(function (b) {
+    b.addEventListener("click", function () {
+      tabs.forEach(function (x) { var on = x === b; x.setAttribute("aria-pressed", on); $("p-" + x.dataset.tab).hidden = !on; });
+    });
+  });
+  function runText(text, label) {
+    var S = parse(text);
+    if (!S) { msg("No rows found. Use two columns: date, sales.", true); return; }
+    render(S, label);
+  }
+  function runSample() { render(sample(), "Sample data"); }
+  $("go-sample").addEventListener("click", runSample);
+  $("go-paste").addEventListener("click", function () { runText($("paste").value, "Pasted data"); });
+  function readFile(f) {
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () { runText(String(rd.result), f.name); };
+    rd.onerror = function () { msg("Could not read that file.", true); };
+    rd.readAsText(f);
+  }
+  $("file").addEventListener("change", function () { readFile(this.files[0]); });
+  var drop = $("drop");
+  ["dragenter", "dragover"].forEach(function (e) { drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (e) { drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove("over"); }); });
+  drop.addEventListener("drop", function (ev) { readFile(ev.dataTransfer.files[0]); });
+  $("horizon").addEventListener("change", function () { if (current) render(current.S, current.label); });
+
+  runSample();
+})();
+</script>
+
+</body>
+</html>
